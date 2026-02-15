@@ -1,8 +1,12 @@
 name: Preflex Fix
 
 on:
-  issue_comment:
-    types: [created]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: "PR number to fix"
+        required: true
+        type: number
 
 permissions:
   contents: write
@@ -11,9 +15,6 @@ permissions:
 
 jobs:
   fix:
-    if: |
-      github.event.issue.pull_request &&
-      contains(github.event.comment.body, '/preflex fix')
     runs-on: ubuntu-latest
 
     services:
@@ -34,8 +35,6 @@ jobs:
     steps:
       - name: Checkout PR repo
         uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.issue.pull_request.head_ref || github.head_ref }}
 
       - name: Checkout Preflex
         uses: actions/checkout@v4
@@ -85,16 +84,12 @@ jobs:
             -H "Content-Type: application/json" \
             -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"ci","version":"1.0"}}}'
 
-      - name: Extract PR number
-        id: pr
-        run: echo "number=${{ github.event.issue.number }}" >> "$GITHUB_OUTPUT"
-
       - name: Run Preflex Fix Agent
         working-directory: preflex/bot
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          PR_NUMBER: ${{ steps.pr.outputs.number }}
+          PR_NUMBER: ${{ inputs.pr_number }}
           MCP_BASE_URL: http://127.0.0.1:3100
           GITHUB_WORKSPACE: ${{ github.workspace }}
         run: node dist/fix-agent.js
