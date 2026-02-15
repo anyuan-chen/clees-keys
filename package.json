@@ -1,0 +1,27 @@
+{
+  "name": "clees-keys",
+  "version": "1.0.0",
+  "description": "Clee's Keys — locksmith business management app",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "dev": "tsc --watch",
+    "db:generate": "prisma generate",
+    "db:push": "prisma db push",
+    "db:seed": "node dist/prisma/seed.js"
+  },
+  "dependencies": {
+    "@elastic/elasticsearch": "^8.17.0",
+    "@prisma/client": "^6.4.0",
+    "express": "^5.1.0",
+    "pg": "^8.13.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.0.0",
+    "@types/pg": "^8.11.0",
+    "prisma": "^6.4.0",
+    "typescript": "^5.7.0"
+  }
+}

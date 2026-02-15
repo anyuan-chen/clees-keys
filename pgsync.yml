@@ -1,0 +1,84 @@
+# pgsync.yml — pgSync configuration for Postgres → Elasticsearch sync
+# Reference: https://pgsync.com/
+#
+# This syncs the Postgres tables to their corresponding ES indices.
+# The fix agent assumes this is configured — it rewrites queries but not sync logic.
+
+- database: clees_keys
+  index: orders
+  setting:
+    number_of_shards: 1
+    number_of_replicas: 0
+  nodes:
+    table: orders
+    columns:
+      - order_date
+      - description
+      - key_type
+      - price
+      - status
+      - customer_id
+      - store
+
+- database: clees_keys
+  index: service-logs
+  setting:
+    number_of_shards: 1
+    number_of_replicas: 0
+  nodes:
+    table: service_logs
+    columns:
+      - timestamp
+      - message
+      - service_type
+      - technician
+      - job_id
+      - duration_ms
+
+- database: clees_keys
+  index: key-inventory
+  setting:
+    number_of_shards: 1
+    number_of_replicas: 0
+  nodes:
+    table: key_inventory
+    columns:
+      - sku
+      - brand
+      - key_type
+      - description
+      - quantity
+      - price
+      - location
+      - updated_at
+
+- database: clees_keys
+  index: appointments
+  setting:
+    number_of_shards: 1
+    number_of_replicas: 0
+  nodes:
+    table: appointments
+    columns:
+      - appointment_date
+      - customer_id
+      - service_type
+      - technician
+      - status
+      - notes
+      - address
+
+- database: clees_keys
+  index: customer-billing
+  setting:
+    number_of_shards: 1
+    number_of_replicas: 0
+  nodes:
+    table: customer_billing
+    columns:
+      - invoice_date
+      - customer_id
+      - description
+      - amount
+      - status
+      - payment_method

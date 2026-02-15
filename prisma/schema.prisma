@@ -1,0 +1,72 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Order {
+  id          Int      @id @default(autoincrement())
+  orderDate   DateTime @default(now()) @map("order_date")
+  description String
+  keyType     String   @map("key_type")
+  price       Float
+  status      String   @default("pending")
+  customerId  String   @map("customer_id")
+  store       String
+
+  @@map("orders")
+}
+
+model ServiceLog {
+  id          Int      @id @default(autoincrement())
+  timestamp   DateTime @default(now())
+  message     String
+  serviceType String   @map("service_type")
+  technician  String
+  jobId       String   @map("job_id")
+  durationMs  Float    @map("duration_ms")
+
+  @@map("service_logs")
+}
+
+model KeyInventory {
+  id          Int      @id @default(autoincrement())
+  sku         String   @unique
+  brand       String
+  keyType     String   @map("key_type")
+  description String
+  quantity    Int      @default(0)
+  price       Float
+  location    String
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@map("key_inventory")
+}
+
+model Appointment {
+  id              Int      @id @default(autoincrement())
+  appointmentDate DateTime @map("appointment_date")
+  customerId      String   @map("customer_id")
+  serviceType     String   @map("service_type")
+  technician      String
+  status          String   @default("scheduled")
+  notes           String?
+  address         String
+
+  @@map("appointments")
+}
+
+model CustomerBilling {
+  id            Int      @id @default(autoincrement())
+  invoiceDate   DateTime @default(now()) @map("invoice_date")
+  customerId    String   @map("customer_id")
+  description   String
+  amount        Float
+  status        String   @default("unpaid")
+  paymentMethod String?  @map("payment_method")
+
+  @@map("customer_billing")
+}
