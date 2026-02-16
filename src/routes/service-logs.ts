@@ -44,4 +44,31 @@ router.post("/", async (req, res) => {
   res.status(201).json(rows[0]);
 });
 
+// GET /api/service-logs/search?q=lockout&since=2026-01-01&until=2026-02-01 — Log search with date range
+router.get("/search", async (req, res) => {
+  const { q, since, until } = req.query;
+  if (!q) {
+    res.status(400).json({ error: "Query parameter 'q' is required" });
+    return;
+  }
+
+  const pattern = `%${q}%`;
+  const params: unknown[] = [pattern];
+  let query = "SELECT * FROM service_logs WHERE message LIKE $1";
+
+  if (since) {
+    params.push(since);
+    query += ` AND timestamp >= $${params.length}`;
+  }
+  if (until) {
+    params.push(until);
+    query += ` AND timestamp < $${params.length}`;
+  }
+
+  query += " ORDER BY timestamp DESC";
+
+  const { rows } = await db.query(query, params);
+  res.json(rows);
+});
+
 export default router;
