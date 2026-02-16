@@ -77,4 +77,23 @@ router.delete("/:id", async (req, res) => {
   res.status(204).end();
 });
 
+// GET /api/appointments/nearby?q=123+oak — Fuzzy address search for nearby jobs
+router.get("/nearby", async (req, res) => {
+  const { q } = req.query;
+  if (!q) {
+    res.status(400).json({ error: "Query parameter 'q' is required" });
+    return;
+  }
+
+  const { rows } = await db.query(
+    `SELECT *, similarity(address, $1) AS match_score
+     FROM appointments
+     WHERE similarity(address, $1) > 0.2
+     ORDER BY match_score DESC
+     LIMIT 20`,
+    [q],
+  );
+  res.json(rows);
+});
+
 export default router;
