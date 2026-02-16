@@ -68,4 +68,22 @@ router.delete("/:id", async (req, res) => {
   res.status(204).end();
 });
 
+// GET /api/orders/autocomplete?prefix=dead — Autocomplete on description
+router.get("/autocomplete", async (req, res) => {
+  const { prefix } = req.query;
+  if (!prefix) {
+    res.status(400).json({ error: "Query parameter 'prefix' is required" });
+    return;
+  }
+
+  const pattern = `${prefix}%`;
+  const { rows } = await db.query(
+    `SELECT id, description, key_type FROM orders
+     WHERE description ILIKE $1 OR key_type ILIKE $1
+     LIMIT 10`,
+    [pattern],
+  );
+  res.json(rows);
+});
+
 export default router;
