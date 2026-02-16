@@ -6,6 +6,7 @@ import inventoryRouter from "./routes/inventory.js";
 import serviceLogsRouter from "./routes/service-logs.js";
 import appointmentsRouter from "./routes/appointments.js";
 import billingRouter from "./routes/billing.js";
+import customersRouter from "./routes/customers.js";
 
 const app = express();
 app.use(express.json());
@@ -21,6 +22,7 @@ app.use("/api/inventory", inventoryRouter);
 app.use("/api/service-logs", serviceLogsRouter);
 app.use("/api/appointments", appointmentsRouter);
 app.use("/api/billing", billingRouter);
+app.use("/api/customers", customersRouter);
 
 const PORT = parseInt(process.env.PORT ?? "3000", 10);
 
