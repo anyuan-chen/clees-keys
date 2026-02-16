@@ -1,4 +1,4 @@
-// routes/inventory.ts — Key inventory management
+// routes/inventory.ts — Key inventory management + search
 
 import { Router } from "express";
 import db from "../db.js";
@@ -56,6 +56,41 @@ router.patch("/:id", async (req, res) => {
     return;
   }
   res.json(rows[0]);
+});
+
+// GET /api/inventory/search?q=schlage&key_type=house — Multi-field faceted search
+router.get("/search", async (req, res) => {
+  const { q, key_type, brand } = req.query;
+  if (!q) {
+    res.status(400).json({ error: "Query parameter 'q' is required" });
+    return;
+  }
+
+  const conditions: string[] = [];
+  const params: unknown[] = [];
+  let paramIdx = 1;
+
+  // Text search across SKU, brand, description
+  const pattern = `%${q}%`;
+  conditions.push(`(sku ILIKE $${paramIdx} OR brand ILIKE $${paramIdx} OR description ILIKE $${paramIdx})`);
+  params.push(pattern);
+  paramIdx++;
+
+  // Optional facet filters
+  if (key_type) {
+    conditions.push(`key_type ILIKE $${paramIdx}`);
+    params.push(`%${key_type}%`);
+    paramIdx++;
+  }
+  if (brand) {
+    conditions.push(`brand ILIKE $${paramIdx}`);
+    params.push(`%${brand}%`);
+    paramIdx++;
+  }
+
+  const query = `SELECT * FROM key_inventory WHERE ${conditions.join(" AND ")} ORDER BY updated_at DESC`;
+  const { rows } = await db.query(query, params);
+  res.json(rows);
 });
 
 export default router;

@@ -1,4 +1,4 @@
-// routes/billing.ts — Customer billing / invoice management
+// routes/billing.ts — Customer billing / invoice management + search
 
 import { Router } from "express";
 import db from "../db.js";
@@ -84,6 +84,24 @@ router.patch("/:id", async (req, res) => {
     return;
   }
   res.json(rows[0]);
+});
+
+// GET /api/billing/search?q=rekey — Search invoices by description
+router.get("/search", async (req, res) => {
+  const { q } = req.query;
+  if (!q) {
+    res.status(400).json({ error: "Query parameter 'q' is required" });
+    return;
+  }
+
+  const pattern = `%${q}%`;
+  const { rows } = await db.query(
+    `SELECT * FROM customer_billing
+     WHERE description ILIKE $1
+     ORDER BY invoice_date DESC`,
+    [pattern],
+  );
+  res.json(rows);
 });
 
 export default router;

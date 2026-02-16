@@ -1,4 +1,6 @@
-// routes/orders.ts — Order management CRUD
+// routes/orders.ts — Order management CRUD + search
+//
+// Search endpoints use ILIKE for full-text matching
 
 import { Router } from "express";
 import db from "../db.js";
@@ -66,6 +68,42 @@ router.delete("/:id", async (req, res) => {
     return;
   }
   res.status(204).end();
+});
+
+// GET /api/orders/search?q=deadbolt — Full-text search across orders
+router.get("/search", async (req, res) => {
+  const { q } = req.query;
+  if (!q) {
+    res.status(400).json({ error: "Query parameter 'q' is required" });
+    return;
+  }
+
+  const pattern = `%${q}%`;
+  const { rows } = await db.query(
+    `SELECT * FROM orders
+     WHERE description ILIKE $1 OR key_type ILIKE $1
+     ORDER BY order_date DESC`,
+    [pattern],
+  );
+  res.json(rows);
+});
+
+// GET /api/orders/autocomplete?prefix=dead — Autocomplete on description
+router.get("/autocomplete", async (req, res) => {
+  const { prefix } = req.query;
+  if (!prefix) {
+    res.status(400).json({ error: "Query parameter 'prefix' is required" });
+    return;
+  }
+
+  const pattern = `${prefix}%`;
+  const { rows } = await db.query(
+    `SELECT id, description FROM orders
+     WHERE description ILIKE $1
+     LIMIT 5`,
+    [pattern],
+  );
+  res.json(rows);
 });
 
 export default router;
