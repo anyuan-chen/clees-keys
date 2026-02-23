@@ -1,7 +1,10 @@
 // routes/service-logs.ts — Service log management + search
+//
+// Search uses Elasticsearch bool + match + range
 
 import { Router } from "express";
 import db from "../db.js";
+import es from "../es.js";
 
 const router = Router();
 
@@ -44,7 +47,7 @@ router.post("/", async (req, res) => {
   res.status(201).json(rows[0]);
 });
 
-// GET /api/service-logs/search?q=lockout&since=2026-01-01 — Log search
+// GET /api/service-logs/search?q=lockout&since=2026-01-01 — Log search via ES bool query
 router.get("/search", async (req, res) => {
   const { q, since } = req.query;
   if (!q) {
@@ -52,19 +55,18 @@ router.get("/search", async (req, res) => {
     return;
   }
 
-  const pattern = `%${q}%`;
-  const params: unknown[] = [pattern];
-  let query = "SELECT * FROM service_logs WHERE message LIKE $1";
-
+  const must: object[] = [{ match: { message: q as string } }];
   if (since) {
-    query += " AND timestamp > $2";
-    params.push(since);
+    must.push({ range: { timestamp: { gte: since as string } } });
   }
 
-  query += " ORDER BY timestamp DESC";
+  const result = await es.search({
+    index: "service_logs",
+    query: { bool: { must } },
+    sort: [{ timestamp: "desc" }],
+  });
 
-  const { rows } = await db.query(query, params);
-  res.json(rows);
+  res.json(result.hits.hits.map((h) => h._source));
 });
 
 // GET /api/service-logs/fuzzy?q=lokout — Fuzzy search using pg_trgm
