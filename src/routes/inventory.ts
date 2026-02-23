@@ -1,7 +1,10 @@
-// routes/inventory.ts — Key inventory management
+// routes/inventory.ts — Key inventory management + search
+//
+// Search endpoint uses ES bool query for multi-field text + facet filters
 
 import { Router } from "express";
 import db from "../db.js";
+import es from "../es.js";
 
 const router = Router();
 
@@ -56,6 +59,37 @@ router.patch("/:id", async (req, res) => {
     return;
   }
   res.json(rows[0]);
+});
+
+// GET /api/inventory/search?q=schlage&key_type=house — Multi-field faceted search via ES bool
+router.get("/search", async (req, res) => {
+  const { q, key_type, brand } = req.query;
+  if (!q) {
+    res.status(400).json({ error: "Query parameter 'q' is required" });
+    return;
+  }
+
+  const filter: object[] = [];
+  if (key_type) filter.push({ term: { key_type: key_type as string } });
+  if (brand) filter.push({ term: { brand: brand as string } });
+
+  const result = await es.search({
+    index: "key_inventory",
+    query: {
+      bool: {
+        should: [
+          { match: { sku: q as string } },
+          { match: { brand: q as string } },
+          { match: { description: q as string } },
+        ],
+        minimum_should_match: 1,
+        filter,
+      },
+    },
+    sort: [{ updated_at: "desc" }],
+  });
+
+  res.json(result.hits.hits.map((h) => h._source));
 });
 
 export default router;

@@ -1,7 +1,10 @@
-// routes/orders.ts — Order management CRUD
+// routes/orders.ts — Order management CRUD + search
+//
+// Search endpoints use Elasticsearch multi_match / match_phrase_prefix
 
 import { Router } from "express";
 import db from "../db.js";
+import es from "../es.js";
 
 const router = Router();
 
@@ -66,6 +69,50 @@ router.delete("/:id", async (req, res) => {
     return;
   }
   res.status(204).end();
+});
+
+// GET /api/orders/search?q=deadbolt — Full-text search via ES multi_match
+router.get("/search", async (req, res) => {
+  const { q } = req.query;
+  if (!q) {
+    res.status(400).json({ error: "Query parameter 'q' is required" });
+    return;
+  }
+
+  const result = await es.search({
+    index: "orders",
+    query: {
+      multi_match: {
+        query: q as string,
+        fields: ["description", "key_type"],
+      },
+    },
+    sort: [{ order_date: "desc" }],
+  });
+
+  res.json(result.hits.hits.map((h) => h._source));
+});
+
+// GET /api/orders/autocomplete?prefix=dead — Autocomplete via ES match_phrase_prefix
+router.get("/autocomplete", async (req, res) => {
+  const { prefix } = req.query;
+  if (!prefix) {
+    res.status(400).json({ error: "Query parameter 'prefix' is required" });
+    return;
+  }
+
+  const result = await es.search({
+    index: "orders",
+    size: 5,
+    query: {
+      match_phrase_prefix: {
+        description: { query: prefix as string },
+      },
+    },
+    _source: ["id", "description"],
+  });
+
+  res.json(result.hits.hits.map((h) => h._source));
 });
 
 export default router;

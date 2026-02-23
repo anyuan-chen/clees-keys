@@ -1,7 +1,10 @@
-// routes/service-logs.ts — Service log management
+// routes/service-logs.ts — Service log management + search
+//
+// Search endpoints use Elasticsearch match + range / fuzziness
 
 import { Router } from "express";
 import db from "../db.js";
+import es from "../es.js";
 
 const router = Router();
 
@@ -42,6 +45,48 @@ router.post("/", async (req, res) => {
     [message, service_type, technician, job_id, duration_ms],
   );
   res.status(201).json(rows[0]);
+});
+
+// GET /api/service-logs/search?q=lockout&since=2026-01-01 — Log search via ES bool query
+router.get("/search", async (req, res) => {
+  const { q, since } = req.query;
+  if (!q) {
+    res.status(400).json({ error: "Query parameter 'q' is required" });
+    return;
+  }
+
+  const must: object[] = [{ match: { message: q as string } }];
+  if (since) {
+    must.push({ range: { timestamp: { gte: since as string } } });
+  }
+
+  const result = await es.search({
+    index: "service_logs",
+    query: { bool: { must } },
+    sort: [{ timestamp: "desc" }],
+  });
+
+  res.json(result.hits.hits.map((h) => h._source));
+});
+
+// GET /api/service-logs/fuzzy?q=lokout — Fuzzy search via ES match + AUTO fuzziness
+router.get("/fuzzy", async (req, res) => {
+  const { q } = req.query;
+  if (!q) {
+    res.status(400).json({ error: "Query parameter 'q' is required" });
+    return;
+  }
+
+  const result = await es.search({
+    index: "service_logs",
+    query: {
+      match: {
+        message: { query: q as string, fuzziness: "AUTO" },
+      },
+    },
+  });
+
+  res.json(result.hits.hits.map((h) => ({ ...h._source, score: h._score })));
 });
 
 export default router;
