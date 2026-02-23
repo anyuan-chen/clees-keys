@@ -1,7 +1,10 @@
 // routes/inventory.ts — Key inventory management + search
+//
+// Search uses Elasticsearch bool query with should + filter
 
 import { Router } from "express";
 import db from "../db.js";
+import es from "../es.js";
 
 const router = Router();
 
@@ -58,7 +61,7 @@ router.patch("/:id", async (req, res) => {
   res.json(rows[0]);
 });
 
-// GET /api/inventory/search?q=schlage&key_type=house — Multi-field faceted search
+// GET /api/inventory/search?q=schlage&key_type=house — Multi-field faceted search via ES bool
 router.get("/search", async (req, res) => {
   const { q, key_type, brand } = req.query;
   if (!q) {
@@ -66,31 +69,27 @@ router.get("/search", async (req, res) => {
     return;
   }
 
-  const conditions: string[] = [];
-  const params: unknown[] = [];
-  let paramIdx = 1;
+  const filter: object[] = [];
+  if (key_type) filter.push({ term: { key_type: key_type as string } });
+  if (brand) filter.push({ term: { brand: brand as string } });
 
-  // Text search across SKU, brand, description
-  const pattern = `%${q}%`;
-  conditions.push(`(sku ILIKE $${paramIdx} OR brand ILIKE $${paramIdx} OR description ILIKE $${paramIdx})`);
-  params.push(pattern);
-  paramIdx++;
+  const result = await es.search({
+    index: "key_inventory",
+    query: {
+      bool: {
+        should: [
+          { match: { sku: q as string } },
+          { match: { brand: q as string } },
+          { match: { description: q as string } },
+        ],
+        minimum_should_match: 1,
+        filter,
+      },
+    },
+    sort: [{ updated_at: "desc" }],
+  });
 
-  // Optional facet filters
-  if (key_type) {
-    conditions.push(`key_type ILIKE $${paramIdx}`);
-    params.push(`%${key_type}%`);
-    paramIdx++;
-  }
-  if (brand) {
-    conditions.push(`brand ILIKE $${paramIdx}`);
-    params.push(`%${brand}%`);
-    paramIdx++;
-  }
-
-  const query = `SELECT * FROM key_inventory WHERE ${conditions.join(" AND ")} ORDER BY updated_at DESC`;
-  const { rows } = await db.query(query, params);
-  res.json(rows);
+  res.json(result.hits.hits.map((h) => h._source));
 });
 
 export default router;
