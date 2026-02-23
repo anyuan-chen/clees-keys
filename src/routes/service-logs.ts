@@ -1,7 +1,10 @@
 // routes/service-logs.ts — Service log management + search
+//
+// Fuzzy search uses Elasticsearch match + fuzziness instead of pg_trgm
 
 import { Router } from "express";
 import db from "../db.js";
+import es from "../es.js";
 
 const router = Router();
 
@@ -67,7 +70,7 @@ router.get("/search", async (req, res) => {
   res.json(rows);
 });
 
-// GET /api/service-logs/fuzzy?q=lokout — Fuzzy search using pg_trgm
+// GET /api/service-logs/fuzzy?q=lokout — Fuzzy search via ES match + AUTO fuzziness
 router.get("/fuzzy", async (req, res) => {
   const { q } = req.query;
   if (!q) {
@@ -75,14 +78,16 @@ router.get("/fuzzy", async (req, res) => {
     return;
   }
 
-  const { rows } = await db.query(
-    `SELECT *, similarity(message, $1) AS score
-     FROM service_logs
-     WHERE similarity(message, $1) > 0.3
-     ORDER BY score DESC`,
-    [q],
-  );
-  res.json(rows);
+  const result = await es.search({
+    index: "service_logs",
+    query: {
+      match: {
+        message: { query: q as string, fuzziness: "AUTO" },
+      },
+    },
+  });
+
+  res.json(result.hits.hits.map((h) => ({ ...h._source, score: h._score })));
 });
 
 export default router;
