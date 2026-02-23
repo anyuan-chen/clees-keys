@@ -1,9 +1,10 @@
 // routes/orders.ts — Order management CRUD + search
 //
-// Search endpoints use ILIKE for full-text matching
+// Autocomplete uses Elasticsearch match_phrase_prefix
 
 import { Router } from "express";
 import db from "../db.js";
+import es from "../es.js";
 
 const router = Router();
 
@@ -88,7 +89,7 @@ router.get("/search", async (req, res) => {
   res.json(rows);
 });
 
-// GET /api/orders/autocomplete?prefix=dead — Autocomplete on description
+// GET /api/orders/autocomplete?prefix=dead — Autocomplete via ES match_phrase_prefix
 router.get("/autocomplete", async (req, res) => {
   const { prefix } = req.query;
   if (!prefix) {
@@ -96,14 +97,18 @@ router.get("/autocomplete", async (req, res) => {
     return;
   }
 
-  const pattern = `${prefix}%`;
-  const { rows } = await db.query(
-    `SELECT id, description FROM orders
-     WHERE description ILIKE $1
-     LIMIT 5`,
-    [pattern],
-  );
-  res.json(rows);
+  const result = await es.search({
+    index: "orders",
+    size: 5,
+    query: {
+      match_phrase_prefix: {
+        description: { query: prefix as string },
+      },
+    },
+    _source: ["id", "description"],
+  });
+
+  res.json(result.hits.hits.map((h) => h._source));
 });
 
 export default router;
