@@ -1,9 +1,10 @@
 // routes/orders.ts — Order management CRUD + search
 //
-// Search endpoints use ILIKE for full-text matching
+// Search endpoint uses Elasticsearch multi_match; autocomplete still uses ILIKE
 
 import { Router } from "express";
 import db from "../db.js";
+import es from "../es.js";
 
 const router = Router();
 
@@ -70,7 +71,7 @@ router.delete("/:id", async (req, res) => {
   res.status(204).end();
 });
 
-// GET /api/orders/search?q=deadbolt — Full-text search across orders
+// GET /api/orders/search?q=deadbolt — Full-text search via ES multi_match
 router.get("/search", async (req, res) => {
   const { q } = req.query;
   if (!q) {
@@ -78,14 +79,18 @@ router.get("/search", async (req, res) => {
     return;
   }
 
-  const pattern = `%${q}%`;
-  const { rows } = await db.query(
-    `SELECT * FROM orders
-     WHERE description ILIKE $1 OR key_type ILIKE $1
-     ORDER BY order_date DESC`,
-    [pattern],
-  );
-  res.json(rows);
+  const result = await es.search({
+    index: "orders",
+    query: {
+      multi_match: {
+        query: q as string,
+        fields: ["description", "key_type"],
+      },
+    },
+    sort: [{ order_date: "desc" }],
+  });
+
+  res.json(result.hits.hits.map((h) => h._source));
 });
 
 // GET /api/orders/autocomplete?prefix=dead — Autocomplete on description

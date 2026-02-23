@@ -1,7 +1,5 @@
-// es.ts — Elasticsearch client (placeholder)
-//
-// This file is intentionally minimal on the main branch.
-// The Preflex fix agent will populate it with a proper @elastic/elasticsearch client
-// when migrating search queries from Postgres to ES.
+// es.ts — Elasticsearch client singleton
+import { Client } from "@elastic/elasticsearch";
 
-export const ES_ENABLED = false;
+const es = new Client({ node: process.env.ES_URL ?? "http://localhost:9200" });
+export default es;
